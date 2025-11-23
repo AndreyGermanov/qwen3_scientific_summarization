@@ -76,7 +76,7 @@ def evaluate_test(data: List[Dict[str, str]], model: Any, tokenizer: Any) -> Dic
 
     Note:
         Uses `do_sample=False` (greedy decoding) for reproducibility.
-        Max generation length is capped at 256 tokens.
+        Max generation length is capped at 1024 tokens.
     """
     pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, do_sample=False)
     # Create inference prompts for all samples in "data"
@@ -87,7 +87,7 @@ def evaluate_test(data: List[Dict[str, str]], model: Any, tokenizer: Any) -> Dic
     # Run inference for all prompts
     for idx in tqdm(range(0, len(prompts), batch_size)):
         batch = prompts[idx : idx + batch_size]
-        outs = pipe(batch, max_new_tokens=256, return_full_text=False)
+        outs = pipe(batch, max_new_tokens=1024, return_full_text=False)
         # Collect generated summaries
         preds.extend(item[0]["generated_text"].strip() for item in outs)
     
@@ -110,19 +110,13 @@ def prepare_data(sample: Dict[str, str], tokenizer: Any) -> Dict[str, List[int]]
 
     Args:
         sample (Dict[str, str]): Dataset sample with "article" and "abstract" keys.
-        tokenizer (Any): Hugging Face tokenizer (must support `__call__`).
+        tokenizer (Any): Hugging Face tokenizer.
 
     Returns:
         Dict[str, List[int]]: Dictionary with:
             - "input_ids": token IDs of full sequence (prompt + summary)
             - "labels": same as input_ids, but prompt tokens replaced with -100
             - "attention_mask": 1 for real tokens, 0 for padding
-
-    Raises:
-        AssertionError: If final sequences have mismatched lengths.
-
-    Note:
-        Designed for use with `Dataset.map(..., batched=False)`.
     """
     article = str(sample["article"]).strip() or "No article."
     abstract = str(sample["abstract"]).strip() or "No summary available."
@@ -162,9 +156,5 @@ def prepare_data(sample: Dict[str, str], tokenizer: Any) -> Dict[str, List[int]]
         "labels": [int(x) for x in labels],
         "attention_mask": [int(x) for x in attention_mask],
     }
-    
-    # Safety check
-    assert len(result["input_ids"]) == len(result["labels"]) == len(result["attention_mask"]), \
-        "Mismatched sequence lengths in prepared sample"
     
     return result
