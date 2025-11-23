@@ -1,4 +1,4 @@
-# FineTune Qwen3-1.7B LLM for scientific summarization
+# Fine Tune Qwen3-1.7B LLM for scientific summarization
 
 This project demonstrates the application of parameter-efficient fine-tuning (PEFT) to adapt the **Qwen3-1.7B-Base** large language model for the task of scientific article summarization. Leveraging **4-bit quantization**, **LoRA (Low-Rank Adaptation)**, and **QLoRA** techniques, I successfully fine-tune the model on a subset of the PubMed summarization dataset
 
