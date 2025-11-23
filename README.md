@@ -5,8 +5,11 @@ This project demonstrates the application of parameter-efficient fine-tuning (PE
 # Contents
 
 `train.ipynb` - This notebook shows full Fine Tuning pipeline of the base **Qwen3-1.7B-Base** model, using QLora.
+
 `functions.py` - Additional functions, used by previous notebook
+
 `inference.ipynb` - This notebook shows how to use fine-tuned model for inference.
+
 `dataset` - This folder contains the dataset, used for fine tuning.
 
 # How to use
@@ -16,4 +19,5 @@ Using Jupyter notebook run the notebooks, described above cell by cell.
 # References
 
 Article: 
+
 Model card: https://huggingface.co/GermanovDev/qwen3-pubmed-summarization
