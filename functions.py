@@ -1,7 +1,7 @@
 from transformers import pipeline
 from tqdm import tqdm
 import evaluate
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any
 import numpy as np
 import torch
 
@@ -161,13 +161,43 @@ def prepare_data(sample: Dict[str, str], tokenizer: Any) -> Dict[str, List[int]]
     return result
 
 def evaluate_hellaswag(
-    model, 
-    tokenizer, 
-    dataset, 
-) -> dict:
-    """
-    Manual HellaSwag evaluation for quantized models.
-    Uses greedy token probability ranking.
+    model,
+    tokenizer,
+    dataset,
+) -> float:
+    """Evaluates a causal language model on the HellaSwag benchmark using zero-shot ranking.
+
+    Implements the official HellaSwag evaluation protocol: for each context and 4 candidate
+    endings, computes the log-probability of each ending given the context, and selects the
+    ending with the highest score. Accuracy is reported as the percentage of correct predictions.
+
+    This implementation is designed for quantized models (e.g., QLoRA) and works entirely
+    offline without external dependencies like lm-eval.
+
+    Args:
+        model: A Hugging Face-compatible causal language model (e.g., PeftModel, QwenForCausalLM).
+            Must support the `__call__` interface with `input_ids` and return `logits`.
+        tokenizer: Corresponding tokenizer for the model. Must support `__call__` and
+            `add_special_tokens` parameter.
+        dataset: Hugging Face Dataset containing HellaSwag examples with keys:
+            - "ctx": str, context string
+            - "endings": List[str], 4 candidate endings
+            - "label": str, ground-truth ending index (0-3)
+
+    Returns:
+        float: Accuracy score in range [0.0, 1.0], representing the proportion of
+        correctly predicted endings.
+
+    Example:
+        >>> ds = load_dataset("hellaswag", split="validation[:100]")
+        >>> acc = evaluate_hellaswag(peft_model, tokenizer, ds)
+        >>> print(f"HellaSwag Accuracy: {acc:.4f}")
+
+    Note:
+        - Uses greedy log-probability ranking (no beam search or sampling)
+        - Handles truncated sequences gracefully by assigning -inf score
+        - Assumes label is stored as a string (e.g., "2") and converts to int
+        - Computationally intensive: ~10-30s per example on RTX 3900 (24GB)
     """
     correct = 0
     for doc in tqdm(dataset):
