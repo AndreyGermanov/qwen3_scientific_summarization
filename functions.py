@@ -2,7 +2,8 @@ from transformers import pipeline
 from tqdm import tqdm
 import evaluate
 from typing import Dict, List, Any, Union
-
+import numpy as np
+import torch
 
 def create_prompt(sample: Dict[str, str], summary: bool = False) -> str:
     """Constructs a prompt string for training or inference.
@@ -60,7 +61,7 @@ def compute_rouge(predictions: List[str], samples: List[Dict[str, str]]) -> Dict
     return rouge.compute(predictions=predictions, references=references)
 
 
-def evaluate_test(data: List[Dict[str, str]], model: Any, tokenizer: Any) -> Dict[str, float]:
+def evaluate_rouge(data: List[Dict[str, str]], model: Any, tokenizer: Any) -> Dict[str, float]:
     """Evaluates a model on a test dataset using ROUGE metrics.
 
     Performs batched inference with greedy decoding, then computes ROUGE scores.
@@ -158,3 +159,57 @@ def prepare_data(sample: Dict[str, str], tokenizer: Any) -> Dict[str, List[int]]
     }
     
     return result
+
+def evaluate_hellaswag(
+    model, 
+    tokenizer, 
+    dataset, 
+) -> dict:
+    """
+    Manual HellaSwag evaluation for quantized models.
+    Uses greedy token probability ranking.
+    """
+    correct = 0
+    for doc in tqdm(dataset):
+        ctx = doc["ctx"]
+        endings = doc["endings"]
+        label = int(doc["label"].strip())
+        
+        scores = []
+        for ending in endings:
+            full_text = ctx + " " + ending.strip()
+            inputs = tokenizer(
+                full_text, 
+                return_tensors="pt", 
+                add_special_tokens=True,
+                truncation=True,
+                max_length=1024
+            ).to(model.device)
+            
+            with torch.no_grad():
+                outputs = model(**inputs)
+                logits = outputs.logits
+                
+                shift_logits = logits[:, :-1, :].contiguous()
+                shift_labels = inputs.input_ids[:, 1:].contiguous()
+                
+                ctx_tokens = tokenizer(ctx, add_special_tokens=False)["input_ids"]
+                ending_start = len(ctx_tokens)
+                
+                if ending_start >= shift_labels.shape[1]:
+                    scores.append(-float('inf'))
+                    continue
+                
+                ending_logits = shift_logits[:, ending_start:, :]
+                ending_labels = shift_labels[:, ending_start:]
+                
+                log_probs = torch.log_softmax(ending_logits, dim=-1)
+                token_log_probs = log_probs.gather(2, ending_labels.unsqueeze(-1)).squeeze(-1)
+                score = token_log_probs.sum().item()
+                scores.append(score)
+        
+        pred = np.argmax(scores) if scores else 0
+        if pred == label:
+            correct += 1
+
+    return correct / len(dataset)
