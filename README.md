@@ -18,6 +18,6 @@ Using Jupyter notebook run the notebooks, described above cell by cell.
 
 # References
 
-Article: 
+Article: https://app.readytensor.ai/publications/AgGZNvzSKQhZ
 
 Model card: https://huggingface.co/GermanovDev/qwen3-pubmed-summarization
